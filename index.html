@@ -7,9 +7,10 @@
 <style>
   :root { --bg:#0f1117; --card:#161a24; --line:#232838; --text:#e6e9f0; --muted:#8b93a7; --green:#22c55e; --blue:#6366f1; }
   * { box-sizing:border-box; }
-  body { margin:0; min-height:100vh; background:radial-gradient(1200px 600px at 50% -10%, #1c2233, var(--bg)); color:var(--text);
+  body { margin:0; min-height:100vh; color:var(--text);
+         background: linear-gradient(rgba(9,11,20,.78), rgba(9,11,20,.9)), url('/bg.jpg') center / cover fixed no-repeat, var(--bg);
          font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif; display:flex; align-items:center; justify-content:center; padding:24px; }
-  .card { width:min(760px,100%); background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 30px 80px rgba(0,0,0,.5); }
+  .card { width:min(760px,100%); background:rgba(20,24,34,.86); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 30px 80px rgba(0,0,0,.6); }
   .top { display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
   h1 { margin:0 0 10px; font-size:20px; }
   .providers { display:flex; gap:8px; flex-wrap:wrap; }
