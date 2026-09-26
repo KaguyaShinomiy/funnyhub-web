@@ -12,7 +12,7 @@
       - a valid key is remembered in funnyhub.txt and reused next time
 ]]
 
-local API_URL    = "http://127.0.0.1:8790"  -- <- change to https://your-domain for release
+local API_URL    = "https://algorithm-modules-strengthening-buying.trycloudflare.com"  -- temp public tunnel; replace with your domain
 local SCRIPT_ID  = "ee87bbab00ca1fc208e7edd5930e4d5f"
 local KEYPAGE_URL = API_URL .. "/key"
 local KEY_FILE   = "funnyhub.txt"
