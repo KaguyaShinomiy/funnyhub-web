@@ -15,6 +15,9 @@
   .providers { display:flex; gap:8px; flex-wrap:wrap; }
   .prov { background:#1e2330; color:var(--muted); border:1px solid var(--line); padding:6px 12px; border-radius:999px; cursor:pointer; font-size:12px; }
   .prov.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .prov.recommended { border-color:var(--green); color:var(--green); }
+  .prov.active.recommended { background:var(--green); color:#04120a; border-color:var(--green); }
+  .reco { margin-top:8px; font-size:12px; color:var(--green); font-weight:600; }
   .grow { flex:1; min-width:220px; }
   .progressLabel { color:var(--muted); font-size:13px; margin-bottom:8px; }
   .bar { height:10px; background:#0b0e14; border-radius:999px; overflow:hidden; border:1px solid var(--line); }
@@ -39,6 +42,7 @@
       <div class="grow">
         <h1 id="title">Get your key</h1>
         <div class="providers" id="providers"></div>
+        <div class="reco" id="reco"></div>
       </div>
       <div class="grow">
         <div class="progressLabel">Progress: <span id="prog">0/2</span></div>
@@ -64,6 +68,8 @@
   const absolute = (u) => (u && u[0] === "/" ? API + u : u);
   const LS_TOKEN = "keyhub_token";
   const LS_PROVIDER = "keyhub_provider";
+  const RECOMMENDED = "lootlabs";
+  const RECO_TEXT = "★ Recommended: LootLabs — fastest & most reliable. Use this one.";
 
   let cfg = { steps: 2, providers: [], key_hours: 24 };
   let provider = null, token = null, stepUrl = null, timer = null, hasKey = false;
@@ -91,11 +97,16 @@
   function renderProviders() {
     const box = $("providers");
     box.innerHTML = "";
-    if (!cfg.providers || cfg.providers.length <= 1) { provider = (cfg.providers || [])[0] || "lootlabs"; return; }
-    cfg.providers.forEach((p) => {
+    const list = (cfg.providers || []).slice();
+    // recommended provider first
+    list.sort((a, b) => (a === RECOMMENDED ? -1 : b === RECOMMENDED ? 1 : 0));
+    const reco = $("reco");
+    if (reco) reco.textContent = list.includes(RECOMMENDED) ? RECO_TEXT : "";
+    if (list.length <= 1) { provider = list[0] || "lootlabs"; return; }
+    list.forEach((p) => {
       const b = document.createElement("button");
-      b.textContent = p;
-      b.className = "prov";
+      b.textContent = p === RECOMMENDED ? p + " ★" : p;
+      b.className = "prov" + (p === RECOMMENDED ? " recommended" : "");
       b.dataset.provider = p;
       b.onclick = () => setProvider(p);
       box.appendChild(b);
@@ -190,7 +201,10 @@
     $("title").textContent = cfg.title || window.KEYHUB_TITLE || "Get your key";
     renderProviders();
     const savedProvider = lsGet(LS_PROVIDER);
-    provider = (savedProvider && (cfg.providers || []).includes(savedProvider)) ? savedProvider : ((cfg.providers || [])[0] || "lootlabs");
+    const list = cfg.providers || [];
+    provider = savedProvider && list.includes(savedProvider)
+      ? savedProvider
+      : (list.includes(RECOMMENDED) ? RECOMMENDED : (list[0] || "lootlabs"));
     highlightProvider();
     updateProgress(0);
 
