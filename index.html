@@ -30,6 +30,7 @@
   .msg { min-height:20px; margin-top:14px; font-size:13px; color:var(--muted); }
   .msg.ok { color:var(--green); }
   .msg.err { color:#f87171; }
+  .hint { margin-top:6px; font-size:12px; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -53,6 +54,7 @@
 
     <button id="getKey" class="getKey" disabled>+ GET A NEW KEY</button>
     <div id="msg" class="msg"></div>
+    <div class="hint">Progress saves automatically — you can close this page and come back.</div>
   </div>
 
 <script src="config.js"></script>
@@ -60,8 +62,14 @@
   const $ = (id) => document.getElementById(id);
   const API = (window.KEYHUB_API || "").replace(/\/+$/, "");
   const absolute = (u) => (u && u[0] === "/" ? API + u : u);
-  let cfg = { steps: 2, providers: [], key_hours: 24 }, provider = "lootlabs";
-  let token = null, stepUrl = null, timer = null;
+  const LS_TOKEN = "keyhub_token";
+  const LS_PROVIDER = "keyhub_provider";
+
+  let cfg = { steps: 2, providers: [], key_hours: 24 };
+  let provider = null, token = null, stepUrl = null, timer = null;
+
+  const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} };
 
   async function jget(path) { return (await fetch(API + path)).json(); }
   async function jpost(path, body) {
@@ -69,68 +77,102 @@
     return r.json();
   }
   function show(text, kind) { const m = $("msg"); m.textContent = text || ""; m.className = "msg" + (kind ? " " + kind : ""); }
-
-  function renderProviders() {
-    const box = $("providers"); box.innerHTML = "";
-    if (!cfg.providers || cfg.providers.length <= 1) return;
-    cfg.providers.forEach((p, i) => {
-      const b = document.createElement("button");
-      b.textContent = p; b.className = "prov" + (i === 0 ? " active" : "");
-      b.onclick = () => { provider = p; token = null; stepUrl = null; $("keyVal").textContent = "—"; $("timeLeft").textContent = "—";
-        $("status").textContent = "no key yet"; $("getKey").disabled = true; $("start").disabled = false;
-        document.querySelectorAll(".prov").forEach((x) => x.classList.remove("active")); b.classList.add("active"); updateProgress(0); };
-      box.appendChild(b);
-    });
-    provider = cfg.providers[0];
-  }
   function updateProgress(done) {
     const req = cfg.steps || 2;
     $("prog").textContent = done + "/" + req;
     $("bar").style.width = Math.min(100, (done / req) * 100) + "%";
   }
+  function showKey(key, hours) {
+    $("keyVal").textContent = key;
+    $("timeLeft").textContent = (hours || cfg.key_hours || 24) + "h";
+    $("status").textContent = "active";
+  }
+
+  function renderProviders() {
+    const box = $("providers");
+    box.innerHTML = "";
+    if (!cfg.providers || cfg.providers.length <= 1) { provider = (cfg.providers || [])[0] || "lootlabs"; return; }
+    cfg.providers.forEach((p) => {
+      const b = document.createElement("button");
+      b.textContent = p;
+      b.className = "prov";
+      b.dataset.provider = p;
+      b.onclick = () => setProvider(p);
+      box.appendChild(b);
+    });
+  }
+  function highlightProvider() {
+    document.querySelectorAll(".prov").forEach((el) => el.classList.toggle("active", el.dataset.provider === provider));
+  }
+  function setProvider(p) {
+    provider = p;
+    lsSet(LS_PROVIDER, p);
+    highlightProvider();
+    check();   // same session -> progress is kept; only the ad link changes
+  }
+
+  async function check() {
+    if (!token) return false;
+    const s = await jget("/api/v1/ad/status?token=" + encodeURIComponent(token) + "&provider=" + encodeURIComponent(provider || ""));
+    if (!s.success) {
+      token = null; stepUrl = null; lsSet(LS_TOKEN, null);
+      $("start").disabled = false; $("getKey").disabled = true;
+      $("start").textContent = "▶ START";
+      $("status").textContent = "session expired — press START";
+      return false;
+    }
+    stepUrl = s.step_url || stepUrl;
+    if (s.provider) { provider = provider || s.provider; highlightProvider(); }
+    updateProgress(s.steps_done);
+    if (s.key) showKey(s.key, s.key_hours);
+    const done = s.steps_done >= s.steps_required;
+    $("start").disabled = done;
+    $("getKey").disabled = !done;
+    $("start").textContent = done ? "✔ DONE" : (s.steps_done > 0 ? "▶ CONTINUE (" + s.steps_done + "/" + s.steps_required + ")" : "▶ START");
+    return true;
+  }
+
+  function poll() { if (timer) clearInterval(timer); check(); timer = setInterval(check, 2500); }
+
   async function start() {
     if (!token) {
       const data = await jpost("/api/v1/ad/session", { provider: provider });
       if (!data.success) { show(data.message || "Could not start", "err"); return; }
-      token = data.token; stepUrl = data.step_url;
+      token = data.token; lsSet(LS_TOKEN, token);
     }
+    await check();
     if (stepUrl) window.open(absolute(stepUrl), "_blank");
-    show("Complete the task, progress updates automatically.");
+    show("Complete the task in the new tab. Progress updates automatically.");
     poll();
   }
-  async function check() {
-    if (!token) return;
-    const s = await jget("/api/v1/ad/status?token=" + encodeURIComponent(token));
-    if (!s.success) { $("status").textContent = "session expired"; return; }
-    stepUrl = s.step_url || stepUrl;
-    updateProgress(s.steps_done);
-    if (s.key) { $("keyVal").textContent = s.key; $("timeLeft").textContent = s.key_hours + "h"; $("status").textContent = "active"; $("getKey").disabled = true; }
-    const done = s.steps_done >= s.steps_required;
-    $("start").disabled = done;
-    $("getKey").disabled = !done;
-    $("start").textContent = done ? "✔ DONE" : "▶ CONTINUE (" + s.steps_done + "/" + s.steps_required + ")";
-    if (s.expired) $("status").textContent = "expired — start again";
-  }
-  function poll() { if (timer) clearInterval(timer); check(); timer = setInterval(check, 2500); }
+
   async function getKey() {
     if (!token) { show("Press START first.", "err"); return; }
     const data = await jpost("/api/v1/ad/claim", { token: token });
     if (!data.success) { show(data.message || "Complete all steps first.", "err"); await check(); return; }
-    $("keyVal").textContent = data.key; $("timeLeft").textContent = (data.hours || 24) + "h"; $("status").textContent = "active";
-    $("getKey").disabled = true;
+    showKey(data.key, data.hours);
+    $("getKey").disabled = true; $("start").disabled = true; $("start").textContent = "✔ DONE";
     try { await navigator.clipboard.writeText(data.key); show("Key copied to clipboard. Paste it in the script.", "ok"); }
     catch (e) { show("Your key: " + data.key, "ok"); }
   }
 
   $("start").onclick = start;
   $("getKey").onclick = getKey;
+
   (async () => {
     cfg = await jget("/api/v1/ad/config");
     $("title").textContent = cfg.title || window.KEYHUB_TITLE || "Get your key";
     renderProviders();
-    const t = new URLSearchParams(location.search).get("t");
-    if (t) { token = t; poll(); }
+    const savedProvider = lsGet(LS_PROVIDER);
+    provider = (savedProvider && (cfg.providers || []).includes(savedProvider)) ? savedProvider : ((cfg.providers || [])[0] || "lootlabs");
+    highlightProvider();
     updateProgress(0);
+
+    token = lsGet(LS_TOKEN) || null;            // resume the previous session
+    if (token) {
+      const alive = await check();
+      if (alive) { poll(); show("Resumed your saved progress."); }
+    }
     if (!cfg.enabled) show("Ad system is disabled on the server.", "err");
   })();
 </script>
