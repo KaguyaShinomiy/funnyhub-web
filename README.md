@@ -29,20 +29,20 @@ Leave it `""` only if the KeyHub server itself is serving this page.
 git init -b main
 git add -A
 git commit -m "FunnyHub key page"
-git remote add origin https://github.com/YOURUSER/funnyhub-web.git
+git remote add origin https://github.com/KaguyaShinomiy/funnyhub-web.git
 git push -u origin main
 ```
 
 Then **Settings → Pages → Source: Deploy from a branch → main / (root)**.
 
-Your page: `https://YOURUSER.github.io/funnyhub-web/`
+Your page: `https://KaguyaShinomiy.github.io/funnyhub-web/`
 
 ## 3. The loader users run
 
 Edit `API_URL` (and keep `SCRIPT_ID`) inside `funnyhub.lua`, then tell users:
 
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/YOURUSER/funnyhub-web/main/funnyhub.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/KaguyaShinomiy/funnyhub-web/main/funnyhub.lua"))()
 ```
 
 The loader:
