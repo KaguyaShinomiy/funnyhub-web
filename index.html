@@ -54,7 +54,7 @@
 
     <button id="getKey" class="getKey" disabled>+ GET A NEW KEY</button>
     <div id="msg" class="msg"></div>
-    <div class="hint">Progress saves automatically — you can close this page and come back.</div>
+    <div class="hint"><a href="#" id="reset" style="color:#6366f1">Reset session</a> · Progress saves automatically — you can close this page and come back.</div>
   </div>
 
 <script src="config.js"></script>
@@ -66,7 +66,7 @@
   const LS_PROVIDER = "keyhub_provider";
 
   let cfg = { steps: 2, providers: [], key_hours: 24 };
-  let provider = null, token = null, stepUrl = null, timer = null;
+  let provider = null, token = null, stepUrl = null, timer = null, hasKey = false;
 
   const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} };
@@ -124,10 +124,12 @@
     stepUrl = s.step_url || stepUrl;
     if (s.provider) { provider = provider || s.provider; highlightProvider(); }
     updateProgress(s.steps_done);
+    hasKey = !!s.key;
     if (s.key) showKey(s.key, s.key_hours);
     const done = s.steps_done >= s.steps_required;
     $("start").disabled = done;
-    $("getKey").disabled = !done;
+    $("getKey").disabled = !(done || hasKey);
+    $("getKey").textContent = hasKey ? "↻ GET ANOTHER KEY" : "+ GET A NEW KEY";
     $("start").textContent = done ? "✔ DONE" : (s.steps_done > 0 ? "▶ CONTINUE (" + s.steps_done + "/" + s.steps_required + ")" : "▶ START");
     return true;
   }
@@ -146,18 +148,42 @@
     poll();
   }
 
+  async function newSession() {
+    token = null; stepUrl = null; hasKey = false; lsSet(LS_TOKEN, null);
+    const data = await jpost("/api/v1/ad/session", { provider: provider });
+    if (!data.success) { show(data.message || "Could not start", "err"); return; }
+    token = data.token; lsSet(LS_TOKEN, token);
+    $("keyVal").textContent = "—"; $("timeLeft").textContent = "—"; $("status").textContent = "no key yet";
+    updateProgress(0);
+    $("start").disabled = false; $("start").textContent = "▶ START";
+    $("getKey").disabled = true; $("getKey").textContent = "+ GET A NEW KEY";
+    show("New session started — press START.");
+  }
+
   async function getKey() {
-    if (!token) { show("Press START first.", "err"); return; }
+    if (hasKey || !token) { await newSession(); return; }   // already have one -> start fresh for another
     const data = await jpost("/api/v1/ad/claim", { token: token });
     if (!data.success) { show(data.message || "Complete all steps first.", "err"); await check(); return; }
+    hasKey = true;
     showKey(data.key, data.hours);
-    $("getKey").disabled = true; $("start").disabled = true; $("start").textContent = "✔ DONE";
+    $("getKey").textContent = "↻ GET ANOTHER KEY";
     try { await navigator.clipboard.writeText(data.key); show("Key copied to clipboard. Paste it in the script.", "ok"); }
     catch (e) { show("Your key: " + data.key, "ok"); }
   }
 
+  async function resetSession() {
+    token = null; stepUrl = null; hasKey = false; lsSet(LS_TOKEN, null); lsSet(LS_PROVIDER, null);
+    if (timer) clearInterval(timer);
+    $("keyVal").textContent = "—"; $("timeLeft").textContent = "—"; $("status").textContent = "no key yet";
+    updateProgress(0);
+    $("start").disabled = false; $("start").textContent = "▶ START";
+    $("getKey").disabled = true; $("getKey").textContent = "+ GET A NEW KEY";
+    show("Session cleared. Press START to begin again.");
+  }
+
   $("start").onclick = start;
   $("getKey").onclick = getKey;
+  $("reset").onclick = resetSession;
 
   (async () => {
     cfg = await jget("/api/v1/ad/config");
