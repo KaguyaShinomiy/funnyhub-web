@@ -12,8 +12,8 @@
       - a valid key is remembered in funnyhub.txt and reused next time
 ]]
 
-local API_URL    = "https://algorithm-modules-strengthening-buying.trycloudflare.com"  -- temp public tunnel; replace with your domain
-local SCRIPT_ID  = "ee87bbab00ca1fc208e7edd5930e4d5f"
+local API_URL    = "https://keyhub.kaguyashinomiy.workers.dev"
+local SCRIPT_ID  = "904b956445aaeb8648039a0256a7f809"
 local KEYPAGE_URL = API_URL .. "/key"
 local KEY_FILE   = "funnyhub.txt"
 
