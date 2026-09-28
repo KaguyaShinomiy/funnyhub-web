@@ -100,8 +100,8 @@ local function httpRequest(method, url, body, tries)
       if ok and res and res.Body and res.Body ~= "" then return res.Body end
     end
     ok, res = pcall(function()
-      if method == "GET" then return game:HttpGet(url, true) end
-      return game:HttpPost(url, body, "application/json", true)
+      if method == "GET" then return HttpService:GetAsync(url) end
+      return HttpService:PostAsync(url, body, Enum.HttpContentType.ApplicationJson, false)
     end)
     if ok and res and res ~= "" then return res end
     if attempt < tries then task.wait(0.5 * attempt) end
