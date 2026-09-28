@@ -240,11 +240,15 @@ local function readSavedKey()
   end)
   if not ok or type(data) ~= "string" or data == "" then return "" end
   data = (data:gsub("%s+$", ""))
-  -- legacy plaintext keys (saved by the old loader) are alphanumeric; new ones
-  -- are XOR+hex. Accept both so switching loaders never bricks a saved key.
+  -- New format is XOR+hex. Hex is [0-9a-f], which ALSO matches an alphanumeric
+  -- test, so decode hex FIRST (even length, pure hex) and only accept the result
+  -- when it looks like a key. Otherwise treat it as a legacy plaintext key, so
+  -- switching loaders never bricks a saved key.
+  if #data >= 16 and #data % 2 == 0 and data:match("^%x+$") then
+    local dec = (xorData(fromHex(data), LOCAL_SEED):gsub("%s+$", ""))
+    if #dec >= 16 and dec:match("^[%w_%-]+$") then return dec end
+  end
   if #data >= 16 and data:match("^[%w_%-]+$") then return data end
-  local dec = (xorData(fromHex(data), LOCAL_SEED):gsub("%s+$", ""))
-  if #dec >= 16 and dec:match("^[%w_%-]+$") then return dec end
   return data
 end
 local function saveKey(key)
@@ -361,7 +365,7 @@ local function showGUI(prefill, statusText, statusColor, detectedMap)
   box.Text = prefill or ""
   box.Font = Enum.Font.Code
   box.TextSize = 13
-  box.ClearTextOnFocus = false
+  box.ClearTextOnFocus = true  -- tapping the box clears the saved-key prefill so a paste cannot stack
   box.Parent = frame
   local bcorner = Instance.new("UICorner"); bcorner.CornerRadius = UDim.new(0, 8); bcorner.Parent = box
 
