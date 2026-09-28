@@ -238,11 +238,14 @@ local function readSavedKey()
     if isfile and isfile(KEY_FILE) then return readfile(KEY_FILE) end
     return nil
   end)
-  if ok and type(data) == "string" and data ~= "" then
-    local raw = xorData(fromHex(data), LOCAL_SEED)
-    return (raw:gsub("%s+$", ""))
-  end
-  return ""
+  if not ok or type(data) ~= "string" or data == "" then return "" end
+  data = (data:gsub("%s+$", ""))
+  -- legacy plaintext keys (saved by the old loader) are alphanumeric; new ones
+  -- are XOR+hex. Accept both so switching loaders never bricks a saved key.
+  if #data >= 16 and data:match("^[%w_%-]+$") then return data end
+  local dec = (xorData(fromHex(data), LOCAL_SEED):gsub("%s+$", ""))
+  if #dec >= 16 and dec:match("^[%w_%-]+$") then return dec end
+  return data
 end
 local function saveKey(key)
   pcall(function() if writefile then writefile(KEY_FILE, toHex(xorData(key, LOCAL_SEED))) end end)
